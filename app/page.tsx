@@ -1,103 +1,197 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
+import { useEffect, useState } from "react";
+import { SessionProvider, useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+interface GrowthStats {
+  total: number;
+  kg: number;
+  avg: number;
+}
+
+export default function Page() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <SessionProvider>
+      <DashboardPage />
+    </SessionProvider>
+  );
+}
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+function DashboardPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status]);
+
+  const [stats, setStats] = useState({
+    total: 0,
+    totalKg: 0,
+    avg: 0,
+    growth: {
+      total: 0,
+      kg: 0,
+      avg: 0,
+    } as GrowthStats,
+  });
+  const [pieData, setPieData] = useState<{ type: string; value: number }[]>([]);
+  const [barData, setBarData] = useState<{ month: string; total: number }[]>([]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") router.push("/login");
+  }, [status]);
+
+  useEffect(() => {
+    fetch("/api/dashboard")
+      .then((res) => res.json())
+      .then((data) => {
+        setStats(data.stats);
+        setPieData(data.pieData);
+        setBarData(data.barData);
+      });
+  }, []);
+
+  const COLORS = ["#10b981", "#3b82f6", "#facc15", "#f97316", "#a78bfa"];
+
+  if (status === "loading") return <p className="p-6">Loading...</p>;
+
+  return (
+    <div className="flex min-h-screen text-gray-900">
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-900 text-white flex flex-col justify-between h-screen fixed">
+        <div>
+          <div className="px-4 py-4 text-lg font-bold border-b border-gray-700">
+            ☕ Kasir Kopi
+          </div>
+          <nav className="mt-4 px-2 space-y-1">
+            <Link href="/" className="block px-4 py-2 rounded hover:bg-gray-800">📊 Dashboard</Link>
+            <Link href="/laporan" className="block px-4 py-2 rounded hover:bg-gray-800">📁 Laporan</Link>
+          </nav>
+        </div>
+        <div className="p-4 border-t border-gray-700 text-sm">
+          <div className="text-gray-400 truncate mb-2">👤 {session?.user?.email}</div>
+          <button
+            onClick={() => signOut()}
+            className="w-full bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-white text-sm"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="ml-64 flex-1 bg-white p-8">
+        <h1 className="text-3xl font-semibold mb-8">Executive Dashboard</h1>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+          <StatCard
+            label="Total Penjualan"
+            value={`Rp ${stats.total.toLocaleString()}`}
+            growth={stats.growth.total}
+          />
+          <StatCard
+            label="Total Kg Terjual"
+            value={`${stats.totalKg} kg`}
+            growth={stats.growth.kg}
+          />
+          <StatCard
+            label="Rata-rata Transaksi"
+            value={`Rp ${stats.avg.toLocaleString()}`}
+            growth={stats.growth.avg}
+          />
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="bg-gray-50 border rounded-lg p-6 shadow-sm">
+            <h2 className="text-lg font-medium mb-4">
+              Penjualan Berdasarkan Jenis Kopi
+            </h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  dataKey="value"
+                  nameKey="type"
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label
+                >
+                  {pieData.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="bg-gray-50 border rounded-lg p-6 shadow-sm">
+            <h2 className="text-lg font-medium mb-4">Total Penjualan per Bulan</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={barData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Bar
+                  dataKey="total"
+                  fill="#3b82f6"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  growth,
+}: {
+  label: string;
+  value: string;
+  growth: number;
+}) {
+  const isPositive = growth >= 0;
+  const growthText = `${isPositive ? "↑" : "↓"} ${Math.abs(growth).toFixed(2)}%`;
+
+  return (
+    <div className="bg-gray-50 border rounded-lg p-6 shadow-sm">
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className="text-3xl font-bold">{value}</p>
+      <p
+        className={`text-sm mt-1 ${
+          isPositive ? "text-green-600" : "text-red-600"
+        }`}
+      >
+        {growthText} dibanding 30 hari lalu
+      </p>
     </div>
   );
 }
