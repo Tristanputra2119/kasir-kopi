@@ -13,6 +13,7 @@ interface Payment {
   coffeeType: string;
   weightKg: number;
   totalPrice: number;
+  image?: string;
   user: {
     email: string;
   };
@@ -32,6 +33,8 @@ function LaporanPage() {
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -62,11 +65,10 @@ function LaporanPage() {
     }
   };
 
-  const exportLaporanExcel = async () => {
+  const generateExcel = async (data: Payment[], filename: string) => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Laporan");
 
-    // Judul
     sheet.mergeCells("A1", "F1");
     const titleCell = sheet.getCell("A1");
     titleCell.value = "LAPORAN PEMBAYARAN KASIR KOPI";
@@ -78,9 +80,8 @@ function LaporanPage() {
       fgColor: { argb: "FF92D050" },
     };
 
-    sheet.addRow([]); // baris kosong
+    sheet.addRow([]);
 
-    // Header
     const headers = ["No", "Tanggal", "Jenis Kopi", "Berat (kg)", "Total Harga", "User"];
     const headerRow = sheet.addRow(headers);
     headerRow.font = { bold: true, size: 12 };
@@ -99,10 +100,9 @@ function LaporanPage() {
       cell.alignment = { horizontal: "center" };
     });
 
-    // Data
-    payments.forEach((p, index) => {
+    data.forEach((p, i) => {
       const row = sheet.addRow([
-        index + 1,
+        i + 1,
         new Date(p.date).toLocaleDateString("id-ID"),
         p.coffeeType,
         `${p.weightKg} kg`,
@@ -120,10 +120,9 @@ function LaporanPage() {
       });
     });
 
-    // Total
-    const totalHarga = payments.reduce((sum, p) => sum + p.totalPrice, 0);
+    const totalHarga = data.reduce((sum, p) => sum + p.totalPrice, 0);
     const totalRow = sheet.addRow(["", "", "", "TOTAL", totalHarga, ""]);
-    totalRow.font = { bold: true, size: 11 };
+    totalRow.font = { bold: true };
     totalRow.getCell(5).numFmt = '"Rp"#,##0';
     totalRow.eachCell((cell) => {
       cell.border = {
@@ -134,7 +133,6 @@ function LaporanPage() {
       };
     });
 
-    // Auto width
     (sheet.columns as ExcelJS.Column[]).forEach((col) => {
       let maxLength = 10;
       col.eachCell?.({ includeEmpty: true }, (cell) => {
@@ -148,7 +146,31 @@ function LaporanPage() {
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(blob, "laporan_pembayaran_kopi.xlsx");
+    saveAs(blob, filename);
+  };
+
+  const exportLaporanExcel = () => {
+    const bulan = new Date().toLocaleString("id-ID", { month: "long" }).toLowerCase();
+    const tahun = new Date().getFullYear();
+    const fileName = `laporan_excel_${bulan}_${tahun}.xlsx`;
+    generateExcel(payments, fileName);
+  };
+
+  const exportLaporanPerBulan = () => {
+    const filtered = payments.filter((p) => {
+      const tgl = new Date(p.date);
+      return (
+        tgl.getMonth() === selectedMonth &&
+        tgl.getFullYear() === selectedYear
+      );
+    });
+
+    const bulan = new Date(0, selectedMonth).toLocaleString("id-ID", {
+      month: "long",
+    }).toLowerCase();
+
+    const fileName = `laporan_excel_${bulan}_${selectedYear}.xlsx`;
+    generateExcel(filtered, fileName);
   };
 
   if (status === "loading" || loading) return <p className="p-6">Loading...</p>;
@@ -158,7 +180,6 @@ function LaporanPage() {
 
   return (
     <div className="flex min-h-screen text-gray-900">
-      {/* Sidebar */}
       <aside className="w-64 bg-gray-900 text-white flex flex-col justify-between h-screen fixed">
         <div>
           <div className="px-4 py-4 text-lg font-bold border-b border-gray-700">
@@ -180,22 +201,56 @@ function LaporanPage() {
         </div>
       </aside>
 
-      {/* Main */}
       <main className="ml-64 flex-1 bg-white p-8">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
           <h1 className="text-3xl font-semibold">Laporan Pembayaran</h1>
-          <div className="space-x-2">
+          <div className="flex gap-2 items-center">
             <Link
               href="/laporan/crud"
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             >
               + Tambah Data
             </Link>
+
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="border px-2 py-1 text-sm rounded"
+            >
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i}>
+                  {new Date(0, i).toLocaleString("id-ID", { month: "long" })}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="border px-2 py-1 text-sm rounded"
+            >
+              {Array.from({ length: 5 }, (_, i) => {
+                const year = new Date().getFullYear() - i;
+                return (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                );
+              })}
+            </select>
+
+            <button
+              onClick={exportLaporanPerBulan}
+              className="bg-green-700 text-white px-3 py-2 rounded hover:bg-green-800 text-sm"
+            >
+              Export Bulan Terpilih
+            </button>
+
             <button
               onClick={exportLaporanExcel}
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              className="bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-800 text-sm"
             >
-              Export Excel
+              Export Semua
             </button>
           </div>
         </div>
@@ -208,6 +263,7 @@ function LaporanPage() {
                 <th className="p-3">Jenis Kopi</th>
                 <th className="p-3">Berat (kg)</th>
                 <th className="p-3">Total Harga</th>
+                <th className="p-3">Nota</th>
                 <th className="p-3">Aksi</th>
               </tr>
             </thead>
@@ -218,6 +274,20 @@ function LaporanPage() {
                   <td className="p-3">{p.coffeeType}</td>
                   <td className="p-3">{p.weightKg} kg</td>
                   <td className="p-3">Rp {p.totalPrice.toLocaleString()}</td>
+                  <td className="p-3">
+                    {p.image ? (
+                      <a
+                        href={p.image}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 underline"
+                      >
+                        Lihat
+                      </a>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td className="p-3 space-x-2">
                     <Link
                       href={`/laporan/crud?id=${p.id}`}
@@ -245,7 +315,6 @@ function LaporanPage() {
           </table>
         </div>
 
-        {/* Total summary */}
         <div className="mt-4 text-sm text-gray-700 border-t pt-4">
           <div className="flex justify-between max-w-sm">
             <span className="font-semibold">Total Harga:</span>

@@ -26,9 +26,9 @@ export const authOptions: NextAuthOptions = {
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) return null;
 
-        // ✅ Penting: id HARUS string
+        // ✅ Jangan ubah id jadi string, biarkan tetap integer
         return {
-          id: String(user.id),
+          id: user.id,
           name: user.name,
           email: user.email,
         };
@@ -44,15 +44,14 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, user }) {
-      // saat login, user masih ada
       if (user) {
-        token.id = user.id;
+        token.id = user.id; // ✅ integer
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string;
+      if (session.user && token.id) {
+        session.user.id = token.id as number; // ✅ pastikan number
       }
       return session;
     },
@@ -60,6 +59,4 @@ export const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
-
-// ✅ Next.js 13+ pakai named export untuk route handler
 export { handler as GET, handler as POST };

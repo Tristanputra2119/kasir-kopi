@@ -32,6 +32,7 @@ export default function Page() {
 }
 
 
+
 function DashboardPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -100,7 +101,7 @@ function DashboardPage() {
 
       {/* Main Content */}
       <main className="ml-64 flex-1 bg-white p-8">
-        <h1 className="text-3xl font-semibold mb-8">Executive Dashboard</h1>
+        <h1 className="text-3xl font-semibold mb-8"> Dashboard</h1>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">

@@ -32,12 +32,14 @@ export async function GET() {
     const totalKg = payments.reduce((acc, p) => acc + p.weightKg, 0);
     const avg = payments.length > 0 ? total / payments.length : 0;
 
-    // Pie chart berdasarkan jenis kopi
-    const coffeeTypes = ["Kopi Bubuk", "Kopi Bijian"];
-    const pieData = coffeeTypes.map((type) => ({
-      type,
-      value: payments.filter((p) => p.coffeeType === type).length,
-    }));
+   const coffeeTypes = ["Kopi Bubuk", "Kopi Bijian"];
+
+const pieData = coffeeTypes.map((type) => {
+  const total = payments
+    .filter((p) => p.coffeeType?.toLowerCase() === type.toLowerCase())
+    .reduce((sum, p) => sum + p.totalPrice, 0);
+  return { type, value: total };
+});
 
     // Bar chart berdasarkan bulan
     const monthNames = [

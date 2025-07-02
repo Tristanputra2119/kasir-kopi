@@ -22,9 +22,12 @@ function CrudPage() {
   const [form, setForm] = useState({
     date: "",
     coffeeType: "kopi bubuk",
-    weightKg: "",
+    weight: "",
+    unit: "kg",
     totalPrice: "",
+    image: null as File | null,
   });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -37,46 +40,72 @@ function CrudPage() {
         .then((data) => {
           const item = Array.isArray(data) ? data[0] : data;
 
-          if (!item || !item.date) {
-            console.error("Data tidak ditemukan atau date kosong:", data);
-            return;
-          }
+          if (!item || !item.date) return;
 
           const d = new Date(item.date);
-          if (isNaN(d.getTime())) {
-            console.error("Tanggal tidak valid:", item.date);
-            return;
-          }
-
-          setForm({
+          setForm((prev) => ({
+            ...prev,
             date: d.toISOString().split("T")[0],
             coffeeType: item.coffeeType,
-            weightKg: item.weightKg.toString(),
-            totalPrice: item.totalPrice.toString(),
-          });
-        })
-        .catch((err) => {
-          console.error("Gagal ambil data edit:", err);
+            weight: item.weightKg.toString(),
+            unit: "kg",
+            totalPrice: (item.weightKg * 190000).toFixed(0),
+          }));
+
+          if (item.image) {
+            setPreviewUrl(item.image);
+          }
         });
     }
   }, [id]);
 
+  useEffect(() => {
+    const weight = parseFloat(form.weight);
+    const weightKg = isNaN(weight)
+      ? 0
+      : form.unit === "gram"
+        ? weight / 1000
+        : weight;
+
+    const price = weightKg * 190000;
+    setForm((prev) => ({ ...prev, totalPrice: price.toFixed(0) }));
+  }, [form.weight, form.unit]);
+
   const handleChange = (e: any) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value, files } = e.target;
+
+    if (name === "image") {
+      const file = files?.[0] ?? null;
+      setForm((prev) => ({ ...prev, image: file }));
+      setPreviewUrl(file ? URL.createObjectURL(file) : null);
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+
+    const weight = parseFloat(form.weight);
+    const weightKg = isNaN(weight)
+      ? 0
+      : form.unit === "gram"
+        ? weight / 1000
+        : weight;
+
+    const formData = new FormData();
+    formData.append("date", form.date);
+    formData.append("coffeeType", form.coffeeType);
+    formData.append("weightKg", weightKg.toString());
+    formData.append("totalPrice", form.totalPrice);
+    if (form.image) formData.append("image", form.image);
+    if (id) formData.append("id", id);
+
     const res = await fetch("/api/laporan", {
       method: id ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        weightKg: parseFloat(form.weightKg),
-        totalPrice: parseInt(form.totalPrice),
-        id,
-      }),
+      body: formData,
     });
+
     if (res.ok) router.push("/laporan");
   };
 
@@ -112,10 +141,13 @@ function CrudPage() {
 
       {/* Form */}
       <main className="ml-64 flex-1 bg-white p-8">
-        <h1 className="text-3xl font-semibold mb-6">{id ? "Edit" : "Tambah"} Pembayaran</h1>
+        <h1 className="text-3xl font-semibold mb-6">
+          {id ? "Edit" : "Tambah"} Pembayaran
+        </h1>
         <form
           onSubmit={handleSubmit}
           className="bg-gray-50 border rounded-lg shadow-sm w-full p-6 space-y-4"
+          encType="multipart/form-data"
         >
           <div>
             <label className="block text-sm font-medium text-gray-700">Tanggal</label>
@@ -141,34 +173,75 @@ function CrudPage() {
               <option value="kopi bijian">Kopi Bijian</option>
             </select>
           </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Berat</label>
+              <input
+                type="number"
+                name="weight"
+                value={form.weight}
+                onChange={handleChange}
+                step="0.1"
+                className="mt-1 block w-full border rounded px-3 py-2"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Satuan</label>
+              <select
+                name="unit"
+                value={form.unit}
+                onChange={handleChange}
+                className="mt-1 block w-full border rounded px-3 py-2"
+              >
+                <option value="kg">kg</option>
+                <option value="gram">gram</option>
+              </select>
+            </div>
+          </div>
+
+   
           <div>
-            <label className="block text-sm font-medium text-gray-700">Berat (kg)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Upload Nota / Gambar</label>
+            <div className="flex items-center space-x-4">
+              <button
+                type="button"
+                onClick={() => document.getElementById("imageInput")?.click()}
+                className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 transition"
+              >
+                Pilih Gambar
+              </button>
+              {previewUrl && (
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="h-20 w-20 object-cover border rounded"
+                />
+              )}
+            </div>
             <input
-              type="number"
-              name="weightKg"
-              value={form.weightKg}
+              type="file"
+              name="image"
+              id="imageInput"
+              accept="image/*"
               onChange={handleChange}
-              step="0.1"
-              className="mt-1 block w-full border rounded px-3 py-2"
-              required
+              className="hidden"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Total Harga</label>
-            <input
-              type="number"
-              name="totalPrice"
-              value={form.totalPrice}
-              onChange={handleChange}
-              className="mt-1 block w-full border rounded px-3 py-2"
-              required
-            />
-            {form.totalPrice && (
-              <p className="text-sm text-gray-500 mt-1">
-                {formatRupiah(form.totalPrice)}
-              </p>
-            )}
-          </div>
+          <label className="block text-sm font-medium text-gray-700">Total Harga</label>
+          <input
+            type="number"
+            name="totalPrice"
+            value={form.totalPrice}
+            disabled
+            className="mt-1 block w-full border rounded px-3 py-2 bg-gray-100 cursor-not-allowed"
+          />
+          {form.totalPrice && (
+            <p className="text-sm text-gray-500 mt-1">
+              {formatRupiah(form.totalPrice)}
+            </p>
+          )}
+
           <div className="pt-4">
             <button
               type="submit"
