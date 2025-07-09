@@ -12,5 +12,8 @@
 ## Update 2 July 2025 
 - **Make gram and kg on input data, and auto calculation 1kg = 190.000 (e.g),and button fix , add image (nota) all done, ready to push into github**
 
+## Update 9 July 2025
+- **Fix Price when calculating in crud-**
+
 *BUG!!*
 - **Logic For route laporan is still undefined, DONE!**

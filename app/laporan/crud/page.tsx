@@ -67,7 +67,7 @@ function CrudPage() {
         ? weight / 1000
         : weight;
 
-    const price = weightKg * 190000;
+    const price = weightKg * 199000;
     setForm((prev) => ({ ...prev, totalPrice: price.toFixed(0) }));
   }, [form.weight, form.unit]);
 
